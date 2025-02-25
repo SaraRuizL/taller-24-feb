@@ -1,0 +1,51 @@
+from flask import Flask, render_template, request, redirect, url_for, session
+import sqlite3
+
+app = Flask(__name__)
+app.secret_key = 'tu_clave_secreta'
+
+def init_db():
+    with sqlite3.connect('usuarios.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('''CREATE TABLE IF NOT EXISTS usuarios (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            username TEXT UNIQUE NOT NULL,
+                            password TEXT NOT NULL)''')
+        conn.commit()
+
+@app.route('/')
+def home():
+    if 'username' in session:
+        return f'Bienvenido, {session["username"]}! <a href="/logout">Logout</a>'
+    return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        with sqlite3.connect('usuarios.db') as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM usuarios WHERE username=? AND password=?", (username, password))
+            user = cursor.fetchone()
+            if user:
+                session['username'] = username
+                return redirect(url_for('home'))
+            else:
+                return 'Credenciales incorrectas. Intenta de nuevo.'
+    return '''
+        <form method="post">
+            Usuario: <input type="text" name="username" required><br>
+            Contraseña: <input type="password" name="password" required><br>
+            <input type="submit" value="Iniciar sesión">
+        </form>
+    '''
+
+@app.route('/logout')
+def logout():
+    session.pop('username', None)
+    return redirect(url_for('login'))
+
+if __name__ == '__main__':
+    init_db()
+    app.run(debug=True)
